@@ -16,9 +16,12 @@
 
         #include "UnityCG.cginc" 
 
+		//
+
 		// vertex info
-		float4 vert(float4 position : POSITION) : SV_POSITION { // SV stands for system value
-			return UnityObjectToClipPos(position);
+		float4 vert(float4 position : POSITION, out float3 localPos : TEXCOORD0) : SV_POSITION { // SV stands for system value
+			localPos = position.xyz;
+	        return UnityObjectToClipPos(position);
 		}
 
 		float4 _Tint;
@@ -26,7 +29,7 @@
 		// color for each pixel to render
 		float4 frag(float4 ver : SV_POSITION, float3 localPos : TEXCOORD0) : SV_TARGET { // SV_TARGET is the default shader target, which needs to use the output from vertex function
 			
-			return float4(localPosition, 1);
+			return float4(localPos, 1);
 		}
 
 		ENDCG
