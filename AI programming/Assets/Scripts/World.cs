@@ -8,6 +8,8 @@ public class World : MonoBehaviour {
 
     private GameObject[] obstacles;
     private GameObject[] walls;
+    private GameObject[] agents;
+    List<Vehicle> vehicles = new List<Vehicle>();
 
     private void Awake()
     {
@@ -21,7 +23,13 @@ public class World : MonoBehaviour {
     void Start () {
         obstacles = GameObject.FindGameObjectsWithTag("Obstacle");
         walls = GameObject.FindGameObjectsWithTag("Wall");
-	}
+        agents = GameObject.FindGameObjectsWithTag("Vehicle");
+        
+        for (int i = 0; i < agents.Length; i++)
+        {
+            vehicles.Add(agents[i].GetComponent<Vehicle>());
+        }
+    }
 	
 	// Update is called once per frame
 	void Update () {
@@ -50,5 +58,10 @@ public class World : MonoBehaviour {
     public GameObject[] GetWalls()
     {
         return walls;
+    }
+
+    public List<Vehicle> GetAgents()
+    {
+        return vehicles;
     }
 }

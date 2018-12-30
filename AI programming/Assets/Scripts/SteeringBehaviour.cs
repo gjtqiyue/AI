@@ -16,22 +16,36 @@ public class SteeringBehaviour : MonoBehaviour {
 
     private Vehicle myVehicle = null;
 
-
+    [SerializeField, Range(0f,10f)]
     float seekMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float arriveMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float fleeMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float pursuitMultAmount = 1f;
+    [SerializeField, Range(0f, 10f)]
     float evadeMultAmount = 2;
+    [SerializeField, Range(0f, 10f)]
     float wanderMultAmount = 0.5f;
+    [SerializeField, Range(0f, 10f)]
     float obstacleAvoidanceMultAmount = 3f;
+    [SerializeField, Range(0f, 10f)]
     float wallAvoidanceMultAmount = 8f;
+    [SerializeField, Range(0f, 10f)]
     float interposeMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float hideMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float pathFollowMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
     float offsetPursuitMultAmount = 1;
-    float seperationMultAmount = 1;
-    float cohesionMultAmount = 1;
-    float alignmentMultAmount = 1;
+    [SerializeField, Range(0f, 10f)]
+    float seperationMultAmount = 1.5f;
+    [SerializeField, Range(0f, 10f)]
+    float cohesionMultAmount = 1.5f;
+    [SerializeField, Range(0f, 10f)]
+    float alignmentMultAmount = 1.5f;
     
 
     [SerializeField]
@@ -154,23 +168,24 @@ public class SteeringBehaviour : MonoBehaviour {
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
 
+
             if (separationOn)
             {
-                Vector3 force = ObstacleAvoidance() * seperationMultAmount;
+                Vector3 force = Seperation(World.instance.GetAgents()) * seperationMultAmount;
 
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
 
             if (cohesionOn)
             {
-                Vector3 force = ObstacleAvoidance() * cohesionMultAmount;
+                Vector3 force = Cohesion(World.instance.GetAgents()) * cohesionMultAmount;
 
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
 
             if (alignmentOn)
             {
-                Vector3 force = ObstacleAvoidance() * alignmentMultAmount;
+                Vector3 force = Alignment(World.instance.GetAgents()) * alignmentMultAmount;
 
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
@@ -189,13 +204,6 @@ public class SteeringBehaviour : MonoBehaviour {
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
 
-            if (wanderOn)
-            {
-                Vector3 force = Wander() * wanderMultAmount;
-
-                if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
-            }
-
             if (pursuitOn)
             {
                 Vector3 force = Pursuit(toPursuit) * pursuitMultAmount;
@@ -203,7 +211,20 @@ public class SteeringBehaviour : MonoBehaviour {
                 if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
             }
 
+            if (wanderOn)
+            {
+                Vector3 force = Wander() * wanderMultAmount;
+
+                if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
+            }
+
             //interpose
+            if (interposeOn)
+            {
+                Vector3 force = Interpose(toPursuit, toEvade) * pursuitMultAmount;
+
+                if (!(AccumulateForce(ref steeringForce, force))) return steeringForce;
+            }
 
             //offset pursuit
 
@@ -237,7 +258,7 @@ public class SteeringBehaviour : MonoBehaviour {
         {
             return false;
         }
-        else if (steeringForceMag >= forceMag)
+        else if (steeringForceRemain > forceMag)
         {
             steeringForce = steeringForce + force;
             return true;
@@ -579,6 +600,43 @@ public class SteeringBehaviour : MonoBehaviour {
     }
 
     /**********************  Interpose  *************************/
+    private Vector3 Interpose(Vehicle v1, Vehicle v2)
+    {
+        Vector3 steeringForce = Vector3.zero;
+
+        // get the midpoint of two positions
+        Vector3 midPoint = (v1.Position() + v2.Position()) / 2;
+
+        // calculate the time estimated to get there
+        float t = (midPoint - myVehicle.Position()).magnitude / myVehicle.maxSpeed;
+
+        // predict the future position of the vehicle assuming the same speed and direction
+        Vector3 futPos1 = v1.Position() + v1.velocity * t;
+        Vector3 futPos2 = v2.Position() + v2.velocity * t;
+
+        // now steer to the midpoint of future position
+        Vector3 newPoint = (futPos1 + futPos2) / 2;
+
+        return Arrive(newPoint, Deceleration.fast);
+    }
+
+    private Vector3 Interpose(Vehicle v1, Vector3 des)
+    {
+        Vector3 steeringForce = Vector3.zero;
+        // get the midpoint of two positions
+        Vector3 midPoint = (v1.Position() + des) / 2;
+
+        // calculate the time estimated to get there
+        float t = (midPoint - myVehicle.Position()).magnitude / myVehicle.maxSpeed;
+
+        // predict the future position of the vehicle assuming the same speed and direction
+        Vector3 futPos = v1.Position() + v1.velocity * t;
+
+        // now steer to the midpoint of future position
+        Vector3 newPoint = (futPos + des) / 2;
+        
+        return Arrive(newPoint, Deceleration.fast);
+    }
 
     /**********************  Hide  *************************/
 
@@ -616,14 +674,94 @@ public class SteeringBehaviour : MonoBehaviour {
         return Vector3.zero;
     }
 
+    /**********************  Cohesion  *************************/
+    private Vector3 Cohesion(List<Vehicle> neighbors)
+    {
+        Vector3 steeringForce = Vector3.zero;
+        Vector3 center = Vector3.zero;
+
+        int count = 0;
+
+        for (int i = 0; i < neighbors.Count; i++)
+        {
+            // skip self and only consider the vehicles in range
+            if (neighbors[i] != myVehicle && neighbors[i].isTagged())
+            {
+                center += neighbors[i].Position();
+
+                count++;
+            }
+        }
+
+        if (count > 0)
+        {
+            center /= count;
+
+            steeringForce = Seek(center);
+        }
+
+        return steeringForce;
+
+    }
+
+    /**********************  Allignment  *************************/
+    private Vector3 Alignment(List<Vehicle> neighbors)
+    {
+        Vector3 steeringForce = Vector3.zero;
+
+        int count = 0;
+
+        for (int i = 0; i < neighbors.Count; i++)
+        {
+            // skip self and only consider the vehicles in range
+            if (neighbors[i] != myVehicle && neighbors[i].isTagged())
+            {
+                steeringForce += neighbors[i].GetHeading();
+
+                count++;
+            }
+        }
+
+        if (count > 0)
+        {
+            steeringForce /= count;
+
+            // steering towards it
+            steeringForce -= myVehicle.GetHeading();
+        }
+
+        return steeringForce;
+
+
+    }
+
+    /**********************  Seperation  *************************/
+    private Vector3 Seperation(List<Vehicle> neighbors)
+    {
+        Vector3 steeringForce = Vector3.zero;
+
+        for (int i=0; i<neighbors.Count; i++)
+        {
+            // skip self and only consider the vehicles in range
+            if (neighbors[i] != myVehicle && neighbors[i].isTagged())
+            {
+                Vector3 toAgent = myVehicle.Position() - neighbors[i].Position();
+
+                // calculate the force away from the vehicle
+                steeringForce += Vector3.Normalize(toAgent) / toAgent.magnitude;
+            }
+        }
+
+        return steeringForce;
+        
+    }
+
+
+
+    
     internal void SetDestination(Vector3 t) { destination = t; }
 
     internal void SetPursuer(Vehicle t) { toPursuit = t; }
 
     internal void SetEnvade(Vehicle t) { toEvade = t; }
-
-    //private void OnDrawGizmos()
-    //{
-    //    Gizmos.DrawSphere(obstacle.Position(), obstacle.boundingRadius);
-    //}
 }

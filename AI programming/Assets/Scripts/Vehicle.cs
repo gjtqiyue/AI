@@ -21,6 +21,8 @@ public class Vehicle : MonoBehaviour {
     private Vector3 heading;
     private Vector3 side;
 
+    private bool tagged = false;
+
     [SerializeField]
     private List<Path> paths = new List<Path>();
 
@@ -85,7 +87,8 @@ public class Vehicle : MonoBehaviour {
         //rig.AddForce(steeringForce);
 
         // update the rotation
-        transform.rotation = Quaternion.LookRotation(transform.position - previousPosition);
+        if (transform.position - previousPosition != Vector3.zero)
+            transform.rotation = Quaternion.LookRotation(transform.position - previousPosition);
         
 
         //Debug.Break();
@@ -107,6 +110,18 @@ public class Vehicle : MonoBehaviour {
         boxCollider.enabled = true;
     }
 
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.GetComponent<Vehicle>() != null)
+            other.GetComponent<Vehicle>().Tag();
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.GetComponent<Vehicle>() != null)
+            other.GetComponent<Vehicle>().Untag();
+    }
+
     public Vector3 GetVelocity(){return velocity;}
 
     public Vector3 GetHeading(){return heading;}
@@ -118,6 +133,12 @@ public class Vehicle : MonoBehaviour {
     public Vector3 Position() { return transform.position; }
 
     public List<Path> GetPath() { return paths; }
+
+    public void Tag() { tagged = true; }
+
+    public void Untag() { tagged = false; }
+
+    public bool isTagged() { return tagged; }
 }
 
 [System.Serializable]
