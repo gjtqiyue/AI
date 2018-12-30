@@ -36,7 +36,7 @@
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
-				o.uv = v.uv * 2;
+				o.uv = v.uv * 2; // tiling by 2
 				return o;
 			}
 
